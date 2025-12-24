@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>云端Manim渲染</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #0e0e0e; color: white; display: flex; flex-direction: column; align-items: center; }
+        
+        /* 顶部 Hero 区域 */
+        .hero { text-align: center; padding: 80px 20px; background: radial-gradient(circle at center, #1e1e1e 0%, #0e0e0e 70%); width: 100%; box-sizing: border-box;}
+        h1 { font-size: 3.5rem; margin-bottom: 10px; background: linear-gradient(90deg, #4ec9b0, #007acc); -webkit-background-clip: text; color: transparent; }
+        p.subtitle { font-size: 1.2rem; color: #888; margin-bottom: 40px; }
+        
+        .btn-group { display: flex; gap: 20px; justify-content: center; margin-bottom: 60px; }
+        .main-btn { padding: 15px 40px; font-size: 18px; border-radius: 30px; border: none; cursor: pointer; transition: transform 0.2s; font-weight: bold; text-decoration: none; }
+        .btn-learn { background: #333; color: white; border: 1px solid #555; }
+        .btn-code { background: #007acc; color: white; box-shadow: 0 0 20px rgba(0, 122, 204, 0.4); }
+        .main-btn:hover { transform: scale(1.05); }
+
+        /* 示例展示区 */
+        .showcase-container { width: 90%; max-width: 1200px; padding: 40px 0; }
+        .category-tabs { display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; background: #1e1e1e; border: 1px solid #333; color: #ccc; cursor: pointer; border-radius: 4px; transition: 0.3s; }
+        .tab-btn:hover { background: #252526; }
+        .tab-btn.active { background: #007acc; color: white; border-color: #007acc; }
+
+        /* 代码+视频展示区 */
+        .demo-box { display: flex; height: 450px; background: #1e1e1e; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+        .demo-code { flex: 1; background: #181818; padding: 20px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; color: #d4d4d4; overflow-y: auto; white-space: pre; border-right: 1px solid #333; line-height: 1.5; }
+        .demo-preview { flex: 1.2; display: flex; align-items: center; justify-content: center; background: black; position: relative; flex-direction: column; padding: 20px;}
+        
+        /* 语法高亮 */
+        .kw { color: #569cd6; } 
+        .cls { color: #4ec9b0; } 
+        .str { color: #ce9178; } 
+
+        .try-btn { margin-top: 15px; padding: 10px 25px; background: rgba(40, 167, 69, 0.2); border: 1px solid #28a745; color: #28a745; border-radius: 4px; cursor: pointer; font-size: 14px; transition: 0.3s; }
+        .try-btn:hover { background: #28a745; color: white; }
+
+        #demo-video { width: 100%; height: auto; border-radius: 4px; background: #000; }
+    </style>
+</head>
+<body>
+
+    <div class="hero">
+        <h1>云端Manim渲染</h1>
+        <p class="subtitle">让数学公式动起来，从这里开始你的创作之旅</p>
+        
+        <div class="btn-group">
+            <a href="https://docs.manim.cn/en/stable/tutorials/quickstart.html" target="_blank" class="main-btn btn-learn">学习教程</a>
+            <a href="/editor" class="main-btn btn-code">直接编码</a>
+        </div>
+    </div>
+
+    <div class="showcase-container">
+        <h2 style="text-align: center; color: #ddd; margin-bottom: 30px;">示例</h2>
+        <div class="category-tabs" id="tabs"></div>
+
+        <div class="demo-box">
+            <div class="demo-code" id="code-display"></div>
+            <div class="demo-preview">
+                <video id="demo-video" controls autoplay loop muted></video>
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const examples = {
+            "cool": {
+                name: "炫酷动画",
+                video: "\\examples\\ContinuousMotion.mp4",
+                code: `from manim import *
+
+class ContinuousMotion(Scene):
+    def construct(self):
+        func = lambda pos: np.sin(pos[0] / 2) * UR + np.cos(pos[1] / 2) * LEFT
+        stream_lines = StreamLines(func, stroke_width=2, max_anchors_per_line=30)
+        self.add(stream_lines)
+        stream_lines.start_animation(warm_up=False, flow_speed=1.5)
+        self.wait(stream_lines.virtual_time / stream_lines.flow_speed)`
+            },
+            "calculus": {
+                name: "微积分",
+                video: "\\examples\\RiemannRectangles.mp4",
+                code: `from manim import *
+
+class RiemannRectangles(Scene):
+    def construct(self):
+        axes = Axes(x_range=[0, 10], y_range=[0, 5])
+        func = lambda x: 0.1 * (x - 2) * (x - 8) + 3
+        graph = axes.plot(func, color=BLUE)
+        
+        rects = axes.get_riemann_rectangles(graph, x_range=[2, 8], dx=0.5, stroke_width=1)
+        
+        self.play(Create(axes), Create(graph))
+        self.play(Create(rects))
+        self.wait(1)`
+            },
+            "linear_algebra": {
+                name: "线性代数",
+                video: "\\examples\\MatrixTransform.mp4",
+                code: `from manim import *
+
+class MatrixTransform(LinearTransformationScene):
+    def construct(self):
+        self.add_unit_square()
+        matrix = [[1, 1], [0, 1]] 
+        self.apply_matrix(matrix)
+        self.wait()`
+            },
+            "algo": {
+                name: "冒泡排序",
+                video: "\\examples\\ArraySorting.mp4",
+                code: `from manim import *
+
+class ArraySorting(Scene):
+    def construct(self):
+        arr = [4, 2, 3, 1]
+        group = VGroup(*[Square().scale(0.5).add(Text(str(n))) for n in arr])
+        group.arrange(RIGHT, buff=0.5)
+        
+        self.play(Create(group))
+        
+        self.play(
+            group[0].animate.move_to(group[3]),
+            group[3].animate.move_to(group[0])
+        )
+        self.wait()`
+            }
+        };
+
+        let currentKey = "cool";
+
+        function init() {
+            const tabs = document.getElementById('tabs');
+            Object.keys(examples).forEach(key => {
+                const btn = document.createElement('div');
+                btn.className = `tab-btn ${key === currentKey ? 'active' : ''}`;
+                btn.innerText = examples[key].name;
+                btn.onclick = () => switchTab(key, btn);
+                tabs.appendChild(btn);
+            });
+            // 调用统一的更新函数
+            updateDemo();
+        }
+
+        function switchTab(key, btnElem) {
+            currentKey = key;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btnElem.classList.add('active');
+            updateDemo();
+        }
+
+        function updateDemo() {
+            const example = examples[currentKey];
+            
+            // 1. 更新代码
+            let raw = example.code;
+            let formatted = raw
+                .replace(/class/g, '<span class="kw">class</span>')
+                .replace(/def/g, '<span class="kw">def</span>')
+                .replace(/\(Scene\)/g, '(<span class="cls">Scene</span>)')
+                .replace(/from/g, '<span class="kw">from</span>')
+                .replace(/import/g, '<span class="kw">import</span>');
+            document.getElementById('code-display').innerHTML = formatted;
+
+            // 2. 更新视频
+            const video = document.getElementById('demo-video');
+            video.src = example.video;
+            video.load(); 
+            video.play().catch(e => console.log("Auto-play prevented"));
+        }
+
+        function runExample() {
+            const code = examples[currentKey].code;
+            localStorage.setItem("manim_preload_code", code);
+            window.location.href = "/editor";
+        }
+
+        init();
+    </script>
+</body>
+</html>

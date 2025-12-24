@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manim Hub Pro - 自由模式</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; background: #1e1e1e; color: white; overflow: hidden; }
+        #main-container { display: flex; width: 100%; height: 100%; }
+        #left-panel { width: 50%; min-width: 15%; display: flex; flex-direction: column; padding: 15px; box-sizing: border-box; }
+        #resizer { width: 6px; cursor: col-resize; background: #333; transition: 0.2s; }
+        #resizer:hover { background: #007acc; }
+        #right-panel { flex: 1; min-width: 15%; background: #000; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
+        #monaco-container { flex-grow: 1; border: 1px solid #444; border-radius: 4px; }
+        #preview-box { width: 100%; flex-grow: 1; background: #000; border: 1px solid #333; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #status-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        #progress-num { font-size: 64px; color: #4ec9b0; font-family: 'Consolas', monospace; font-weight: bold; }
+        button { padding: 12px 30px; background: #007acc; color: white; border: none; cursor: pointer; font-size: 16px; margin-top: 10px; border-radius: 4px; font-weight: bold; }
+        video { max-width: 100%; max-height: 100%; display: none; }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <div id="left-panel">
+            <h4 style="margin:0 0 10px 0; color:#888;">代码编辑器</h4>
+            <div id="monaco-container"></div>
+        </div>
+        <div id="resizer"></div>
+        <div id="right-panel">
+            <h4 style="margin:0 0 10px 0; color:#888;">视频预览</h4>
+            <div id="preview-box">
+                <div id="status-overlay">
+                    <div id="progress-num">0%</div>
+                    <div style="color:#569cd6; margin-top:10px;">Manim 引擎渲染中...</div>
+                </div>
+                <video id="video-player" controls autoplay loop></video>
+            </div>
+            <div style="margin-top: 15px; display: flex; gap: 15px; align-items: center;">
+                <select id="quality-select" style="background: #333; color: white; padding: 8px; border-radius: 4px;">
+                    <option value="ql">极速 (480p)</option>
+                    <option value="qm">标准 (720p)</option>
+                    <option value="qh">高清 (1080p)</option>
+                </select>
+                <button onclick="render()">立即渲染</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editor;
+        // 背景代码现在只提供基础引用，不强制任何结构
+        const BOILERPLATE = `from manim import *\nconfig.tex_template = TexTemplateLibrary.ctex\n`;
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('monaco-container'), {
+                value:  BOILERPLATE + "#latex支持中文\n" +"# 在此编写完整的 Manim 类和方法...\n",
+                language: 'python', theme: 'vs-dark', fontSize: 16, automaticLayout: true
+            });
+        });
+
+        // 左右拖拽面板占比逻辑
+        const resizer = document.getElementById('resizer');
+        const leftPanel = document.getElementById('left-panel');
+        let isResizing = false;
+        resizer.addEventListener('mousedown', () => isResizing = true);
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            leftPanel.style.width = (e.clientX / window.innerWidth) * 100 + '%';
+        });
+        document.addEventListener('mouseup', () => isResizing = false);
+
+        // 渲染逻辑
+        async function render() {
+            const overlay = document.getElementById('status-overlay');
+            const progressNum = document.getElementById('progress-num');
+            const video = document.getElementById('video-player');
+            
+            overlay.style.display = 'flex';
+            video.style.display = 'none';
+
+            // 进度条模拟
+            let percent = 0;
+            const timer = setInterval(() => {
+                if (percent < 98) {
+                    percent += (100 - percent) * 0.05;
+                    progressNum.innerText = Math.floor(percent) + "%";
+                }
+            }, 400);
+
+            try {
+                const response = await fetch(`${window.location.origin}/render`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        code: editor.getValue(), 
+                        quality: document.getElementById('quality-select').value 
+                    })
+                });
+                const data = await response.json();
+                clearInterval(timer);
+                if (data.status === 'success') {
+                    progressNum.innerText = "100%";
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        video.src = `${data.video_url}?t=${Date.now()}`
+                        video.style.display = "block";
+                        video.load(); video.play();
+                    }, 500);
+                } else {
+                    alert("渲染报错：\n" + data.error_log);
+                    overlay.style.display = 'none';
+                }
+            } catch (e) {
+                clearInterval(timer);
+                alert("无法连接服务器");
+                overlay.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
